@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Proximity Voice Waves (Left) -->
+    <path
+        android:pathData="M30,47 C26,51 26,57 30,61"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M24,42 C18,48 18,60 24,66"
+        android:strokeColor="#38BDF8"
+        android:strokeAlpha="0.6"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Proximity Voice Waves (Right) -->
+    <path
+        android:pathData="M78,47 C82,51 82,57 78,61"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M84,42 C90,48 90,60 84,66"
+        android:strokeColor="#38BDF8"
+        android:strokeAlpha="0.6"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Minecraft Server Cube Top Face (Isometric Grass Block/Emerald Server Top) -->
+    <path
+        android:pathData="M54,34 L72,43 L54,52 L36,43 Z"
+        android:fillColor="#10B981" />
+    <path
+        android:pathData="M54,36 L68,43 L54,50 L40,43 Z"
+        android:fillColor="#34D399" />
+
+    <!-- Minecraft Server Cube Left Face (Dark Slate Server Chassis) -->
+    <path
+        android:pathData="M36,43 L54,52 L54,72 L36,63 Z"
+        android:fillColor="#1E293B" />
+    <!-- Server Rack Slots Left -->
+    <path
+        android:pathData="M39,49 L51,55 M39,54 L51,60 M39,59 L51,65"
+        android:strokeColor="#334155"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+    <!-- LED Indicators Left -->
+    <path
+        android:pathData="M41,49.5 L42,50"
+        android:strokeColor="#34D399"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M41,54.5 L42,55"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+
+    <!-- Minecraft Server Cube Right Face (Medium Slate Server Chassis) -->
+    <path
+        android:pathData="M54,52 L72,43 L72,63 L54,72 Z"
+        android:fillColor="#334155" />
+    <!-- Server Rack Slots Right -->
+    <path
+        android:pathData="M57,55 L69,49 M57,60 L69,54 M57,65 L69,59"
+        android:strokeColor="#475569"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+    <!-- Power/Online LED Status -->
+    <path
+        android:pathData="M66,50.5 L67,50"
+        android:strokeColor="#34D399"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M66,55.5 L67,55"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+
+    <!-- Microphone / Broadcast Antenna Pin on Top -->
+    <path
+        android:pathData="M54,34 L54,28"
+        android:strokeColor="#F8FAFC"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round" />
+    <!-- Glowing Node on Antenna -->
+    <path
+        android:pathData="M54,28 A2,2 0 1,1 54,27.9"
+        android:strokeColor="#34D399"
+        android:strokeWidth="3"
+        android:fillColor="#34D399" />
+</vector>

@@ -1,0 +1,6 @@
+{
+  "name": "CraftHost",
+  "description": "24/7 Minecraft server hosting platform for Java and Bedrock with integrated proximity voice chat.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
