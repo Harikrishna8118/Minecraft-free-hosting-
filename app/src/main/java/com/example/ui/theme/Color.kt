@@ -19,6 +19,7 @@ val CyanContainerLight = Color(0xFFCFFAFE)
 // Accent Amber / Bedrock Bronze
 val AmberAccent = Color(0xFFF59E0B)
 val RedstoneRed = Color(0xFFEF4444)
+val PurpleAccent = Color(0xFFA855F7)
 
 // Dark Theme Surfaces
 val ObsidianDarkBg = Color(0xFF090D10)

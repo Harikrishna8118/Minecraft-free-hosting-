@@ -6,7 +6,10 @@ import com.example.model.ServerRegion
 import com.example.model.ServerSoftware
 import com.example.model.ServerStatus
 
-class RoomConverters {
+/**
+ * TypeConverter specifically for the Minecraft server edition enum.
+ */
+class ServerEditionConverter {
 
     @TypeConverter
     fun fromEdition(edition: MinecraftEdition?): String {
@@ -21,6 +24,12 @@ class RoomConverters {
             MinecraftEdition.JAVA
         }
     }
+}
+
+/**
+ * TypeConverters for status, software core, and node region enums.
+ */
+class RoomConverters {
 
     @TypeConverter
     fun fromStatus(status: ServerStatus?): String {

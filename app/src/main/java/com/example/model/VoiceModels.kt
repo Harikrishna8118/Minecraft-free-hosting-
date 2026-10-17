@@ -109,3 +109,32 @@ object SpatialAudioEngine {
         )
     }
 }
+
+enum class VoiceActivationType(val label: String, val description: String) {
+    VOICE_ACTIVITY("Voice Activity (VAD)", "Automatically transmits audio when speaking above the threshold"),
+    PUSH_TO_TALK("Push-to-Talk (PTT)", "Transmits audio only while holding the talk key/button")
+}
+
+enum class DistanceAttenuationModel(val label: String, val formula: String) {
+    LINEAR("Linear Falloff", "Uniform sound reduction proportional to block distance"),
+    LOGARITHMIC("Logarithmic (Natural)", "Realistic acoustic dropoff mimicking real-world sound physics"),
+    EXPONENTIAL("Exponential (Rapid)", "Steep decay outside immediate vicinity")
+}
+
+data class VoiceChatSettings(
+    val attenuationDistanceBlocks: Int = 400,
+    val fullVolumeRadiusBlocks: Int = 15,
+    val micSensitivityPercent: Float = 60f,
+    val micGainPercent: Float = 100f,
+    val outputVolumePercent: Float = 100f,
+    val voiceActivationType: VoiceActivationType = VoiceActivationType.VOICE_ACTIVITY,
+    val attenuationModel: DistanceAttenuationModel = DistanceAttenuationModel.LOGARITHMIC,
+    val whisperEnabled: Boolean = true,
+    val shoutEnabled: Boolean = true,
+    val blockObstructionMuffling: Boolean = true,
+    val noiseSuppression: Boolean = true,
+    val echoCancellation: Boolean = true,
+    val audioBitrateKbps: Int = 48,
+    val defaultChannel: VoiceChannelMode = VoiceChannelMode.PROXIMITY
+)
+

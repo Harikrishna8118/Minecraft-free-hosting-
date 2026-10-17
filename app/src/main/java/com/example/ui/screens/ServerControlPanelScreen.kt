@@ -33,11 +33,12 @@ import com.example.ui.theme.*
 enum class ServerPanelTab(val label: String, val icon: ImageVector) {
     OVERVIEW("Overview", Icons.Default.Info),
     CONSOLE("Console", Icons.Default.Terminal),
-    PLAYERS("Players", Icons.Default.People),
-    FILES("Files", Icons.Default.Folder),
-    WORLD("World", Icons.Default.Public),
+    WORLD("World & Aternos", Icons.Default.Public),
     BACKUPS("Backups", Icons.Default.Backup),
-    PLUGINS("Plugins", Icons.Default.Extension),
+    MODS_PLUGINS("Mods & Plugins", Icons.Default.Extension),
+    ADDONS_PACKS("Packs & Addons", Icons.Default.Layers),
+    FILES("Files", Icons.Default.Folder),
+    PLAYERS("Players", Icons.Default.People),
     VOICE("Voice Chat", Icons.Default.RecordVoiceOver),
     SETTINGS("Settings", Icons.Default.Settings),
     METRICS("Metrics", Icons.Default.ShowChart)
@@ -55,6 +56,9 @@ fun ServerControlPanelScreen(
     listenerPos: VoicePosition,
     isMuted: Boolean,
     isPushToTalkActive: Boolean,
+    worldMetadata: ServerWorldMetadata? = null,
+    resourcePacks: List<ResourcePackItem> = emptyList(),
+    addons: List<BedrockAddonItem> = emptyList(),
     onStartServer: () -> Unit,
     onStopServer: () -> Unit,
     onRestartServer: () -> Unit,
@@ -65,13 +69,28 @@ fun ServerControlPanelScreen(
     onSaveFile: (String, String) -> Unit,
     onCreateBackup: (String) -> Unit,
     onRestoreBackup: (String) -> Unit,
+    onDeleteBackup: (String) -> Unit = {},
+    onImportExternalBackup: (String, String) -> Unit = { _, _ -> },
+    onImportAternosWorld: (String, String, Boolean) -> Unit = { _, _, _ -> },
+    onImportWorldZip: (String, WorldImportSource) -> Unit = { _, _ -> },
+    onResetWorld: (String, String) -> Unit = { _, _ -> },
     onTogglePlugin: (String, Boolean) -> Unit,
+    onInstallPlugin: (String) -> Unit = {},
+    onDeletePlugin: (String) -> Unit = {},
+    onUploadCustomMod: (String, String, String, String, String, String) -> Unit = { _, _, _, _, _, _ -> },
+    onAddResourcePack: (ResourcePackItem) -> Unit = {},
+    onToggleResourcePack: (String, Boolean) -> Unit = { _, _ -> },
+    onDeleteResourcePack: (String) -> Unit = {},
+    onAddBedrockAddon: (BedrockAddonItem) -> Unit = {},
+    onToggleBedrockAddon: (String, Boolean) -> Unit = { _, _ -> },
+    onDeleteBedrockAddon: (String) -> Unit = {},
     onTogglePlayerOp: (String, Boolean) -> Unit,
     onBanPlayer: (String) -> Unit,
     onUnbanPlayer: (String) -> Unit,
     onToggleMute: () -> Unit,
     onPushToTalkChange: (Boolean) -> Unit,
     onUpdateVoiceRange: (Int) -> Unit,
+    onOpenVoiceSettings: () -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -154,20 +173,44 @@ fun ServerControlPanelScreen(
                     onClearConsole = onClearConsole,
                     modifier = Modifier.fillMaxSize()
                 )
+                ServerPanelTab.WORLD -> WorldManagementTab(
+                    server = server,
+                    worldMetadata = worldMetadata,
+                    onImportAternosWorld = onImportAternosWorld,
+                    onImportWorldZip = onImportWorldZip,
+                    onResetWorld = onResetWorld
+                )
+                ServerPanelTab.BACKUPS -> BackupsManagementTab(
+                    backups = backups,
+                    onCreateBackup = onCreateBackup,
+                    onRestoreBackup = onRestoreBackup,
+                    onDeleteBackup = onDeleteBackup,
+                    onImportExternalBackup = onImportExternalBackup
+                )
+                ServerPanelTab.MODS_PLUGINS -> ModsAndPluginsTab(
+                    plugins = plugins,
+                    onToggle = onTogglePlugin,
+                    onInstall = onInstallPlugin,
+                    onDelete = onDeletePlugin,
+                    onUploadCustomMod = onUploadCustomMod
+                )
+                ServerPanelTab.ADDONS_PACKS -> AddonsAndPacksTab(
+                    resourcePacks = resourcePacks,
+                    addons = addons,
+                    onAddResourcePack = onAddResourcePack,
+                    onToggleResourcePack = onToggleResourcePack,
+                    onDeleteResourcePack = onDeleteResourcePack,
+                    onAddBedrockAddon = onAddBedrockAddon,
+                    onToggleBedrockAddon = onToggleBedrockAddon,
+                    onDeleteBedrockAddon = onDeleteBedrockAddon
+                )
+                ServerPanelTab.FILES -> FilesTab(files = files, onSaveFile = onSaveFile)
                 ServerPanelTab.PLAYERS -> PlayersTab(
                     players = players,
                     onToggleOp = onTogglePlayerOp,
                     onBan = onBanPlayer,
                     onUnban = onUnbanPlayer
                 )
-                ServerPanelTab.FILES -> FilesTab(files = files, onSaveFile = onSaveFile)
-                ServerPanelTab.WORLD -> WorldTab(server = server)
-                ServerPanelTab.BACKUPS -> BackupsTab(
-                    backups = backups,
-                    onCreateBackup = onCreateBackup,
-                    onRestoreBackup = onRestoreBackup
-                )
-                ServerPanelTab.PLUGINS -> PluginsTab(plugins = plugins, onToggle = onTogglePlugin)
                 ServerPanelTab.VOICE -> VoiceTab(
                     server = server,
                     participants = voiceParticipants,
@@ -176,7 +219,8 @@ fun ServerControlPanelScreen(
                     isPushToTalkActive = isPushToTalkActive,
                     onToggleMute = onToggleMute,
                     onPushToTalkChange = onPushToTalkChange,
-                    onUpdateRange = onUpdateVoiceRange
+                    onUpdateRange = onUpdateVoiceRange,
+                    onOpenVoiceSettings = onOpenVoiceSettings
                 )
                 ServerPanelTab.SETTINGS -> SettingsTab(server = server)
                 ServerPanelTab.METRICS -> MetricsTab(server = server)
@@ -629,192 +673,7 @@ private fun FilesTab(
     }
 }
 
-@Composable
-private fun WorldTab(server: MinecraftServer) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = SlateDarkCard),
-                modifier = Modifier.fillMaxWidth().border(1.dp, SlateDarkBorder, RoundedCornerShape(12.dp))
-            ) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("WORLD MANAGEMENT", color = TextDarkMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    SummaryRow("Level Name", "world")
-                    SummaryRow("World Seed", "-4920491823901")
-                    SummaryRow("Dimensions", "Overworld, Nether, The End")
-                    SummaryRow("Chunks Generated", "14,820 chunks (482 MB)")
 
-                    HorizontalDivider(color = SlateDarkBorder)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = { /* download zip */ },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = SlateDarkSurface, contentColor = Color.White),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, SlateDarkBorder),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Download ZIP", fontSize = 11.sp)
-                        }
-
-                        Button(
-                            onClick = { /* upload world */ },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = SlateDarkSurface, contentColor = Color.White),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, SlateDarkBorder),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Upload ZIP", fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun BackupsTab(
-    backups: List<BackupSnapshot>,
-    onCreateBackup: (String) -> Unit,
-    onRestoreBackup: (String) -> Unit
-) {
-    var showCreateDialog by remember { mutableStateOf(false) }
-    var backupNameInput by remember { mutableStateOf("") }
-
-    if (showCreateDialog) {
-        AlertDialog(
-            onDismissRequest = { showCreateDialog = false },
-            title = { Text("Create S3 Cloud Backup", color = Color.White) },
-            text = {
-                OutlinedTextField(
-                    value = backupNameInput,
-                    onValueChange = { backupNameInput = it },
-                    label = { Text("Backup Label") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White)
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onCreateBackup(backupNameInput)
-                        showCreateDialog = false
-                        backupNameInput = ""
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary, contentColor = Color.Black)
-                ) {
-                    Text("Take Snapshot")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCreateDialog = false }) { Text("Cancel") }
-            },
-            containerColor = SlateDarkCard
-        )
-    }
-
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("SNAPSHOT ARCHIVES (Multi-AZ S3)", color = TextDarkMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Button(
-                    onClick = { showCreateDialog = true },
-                    shape = RoundedCornerShape(6.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary, contentColor = Color.Black),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                    modifier = Modifier.height(30.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Create Snapshot", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        items(backups) { bk ->
-            Card(
-                shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(containerColor = SlateDarkCard),
-                modifier = Modifier.fillMaxWidth().border(1.dp, SlateDarkBorder, RoundedCornerShape(10.dp))
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(bk.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        Text("${bk.sizeMb} MB • ${bk.createdAt} • ${bk.storageTier}", color = TextDarkSecondary, fontSize = 11.sp)
-                    }
-
-                    Button(
-                        onClick = { onRestoreBackup(bk.id) },
-                        shape = RoundedCornerShape(6.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SlateDarkSurface, contentColor = CyanLight),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, CyanLight),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(30.dp)
-                    ) {
-                        Text("Restore", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PluginsTab(
-    plugins: List<PluginModItem>,
-    onToggle: (String, Boolean) -> Unit
-) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            Text("INSTALLED PLUGINS & MODS", color = TextDarkMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        }
-
-        items(plugins) { plug ->
-            Card(
-                shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(containerColor = SlateDarkCard),
-                modifier = Modifier.fillMaxWidth().border(1.dp, SlateDarkBorder, RoundedCornerShape(10.dp))
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(plug.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text("v${plug.version}", color = CyanLight, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        }
-                        Text(plug.description, color = TextDarkSecondary, fontSize = 11.sp, lineHeight = 15.sp)
-                    }
-
-                    Switch(
-                        checked = plug.isEnabled,
-                        onCheckedChange = { onToggle(plug.id, it) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = EmeraldLight, checkedTrackColor = EmeraldContainerDark)
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun VoiceTab(
@@ -825,9 +684,46 @@ private fun VoiceTab(
     isPushToTalkActive: Boolean,
     onToggleMute: () -> Unit,
     onPushToTalkChange: (Boolean) -> Unit,
-    onUpdateRange: (Int) -> Unit
+    onUpdateRange: (Int) -> Unit,
+    onOpenVoiceSettings: () -> Unit = {}
 ) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = SlateDarkCard),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, SlateDarkBorder, RoundedCornerShape(12.dp))
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Tune, contentDescription = null, tint = EmeraldLight, modifier = Modifier.size(20.dp))
+                        Column {
+                            Text("PROXIMITY PARAMETERS", color = TextDarkMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("Attenuation: ${server.voiceRangeBlocks} Blocks", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Button(
+                        onClick = onOpenVoiceSettings,
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary, contentColor = Color.Black),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Audio Settings", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
         item {
             VoiceRadarView(
                 listenerPos = listenerPos,

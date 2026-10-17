@@ -8,11 +8,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.random.Random
-import com.example.data.local.MinecraftServerDao
+import com.example.data.local.ServerDao
 import com.example.data.local.ServerEntity
 
 class CraftHostRepository(
-    private val serverDao: MinecraftServerDao? = null
+    private val serverDao: ServerDao? = null
 ) {
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -48,6 +48,9 @@ class CraftHostRepository(
     private val _voiceServiceHealthy = MutableStateFlow(true)
     val voiceServiceHealthy: StateFlow<Boolean> = _voiceServiceHealthy.asStateFlow()
 
+    private val _voiceChatSettings = MutableStateFlow(VoiceChatSettings())
+    val voiceChatSettings: StateFlow<VoiceChatSettings> = _voiceChatSettings.asStateFlow()
+
     private val _serverFiles = MutableStateFlow<Map<String, List<ServerFileItem>>>(emptyMap())
     val serverFiles: StateFlow<Map<String, List<ServerFileItem>>> = _serverFiles.asStateFlow()
 
@@ -59,6 +62,15 @@ class CraftHostRepository(
 
     private val _serverPlayers = MutableStateFlow<Map<String, List<MinecraftPlayer>>>(emptyMap())
     val serverPlayers: StateFlow<Map<String, List<MinecraftPlayer>>> = _serverPlayers.asStateFlow()
+
+    private val _serverWorldMetadata = MutableStateFlow<Map<String, ServerWorldMetadata>>(emptyMap())
+    val serverWorldMetadata: StateFlow<Map<String, ServerWorldMetadata>> = _serverWorldMetadata.asStateFlow()
+
+    private val _serverResourcePacks = MutableStateFlow<Map<String, List<ResourcePackItem>>>(emptyMap())
+    val serverResourcePacks: StateFlow<Map<String, List<ResourcePackItem>>> = _serverResourcePacks.asStateFlow()
+
+    private val _serverAddons = MutableStateFlow<Map<String, List<BedrockAddonItem>>>(emptyMap())
+    val serverAddons: StateFlow<Map<String, List<BedrockAddonItem>>> = _serverAddons.asStateFlow()
 
     private val _activityLogs = MutableStateFlow<List<ActivityLogItem>>(emptyList())
     val activityLogs: StateFlow<List<ActivityLogItem>> = _activityLogs.asStateFlow()
@@ -154,7 +166,7 @@ class CraftHostRepository(
         // Sync with persistent Room Database when DAO is supplied
         serverDao?.let { dao ->
             scope.launch {
-                dao.insertServers(initialServers.map { ServerEntity.fromDomainModel(it) })
+                initialServers.forEach { dao.insertServer(ServerEntity.fromDomainModel(it)) }
                 dao.getAllServers().collect { entities ->
                     if (entities.isNotEmpty()) {
                         _servers.value = entities.map { it.toDomainModel() }
@@ -347,6 +359,51 @@ level-name=world
         )
         _serverPlayers.value = mapOf(server1.id to s1Players)
 
+        // World Metadata
+        val s1World = ServerWorldMetadata(
+            worldName = "world",
+            seed = "-4920491823901",
+            generatorType = "Normal (Paper 1.21.4)",
+            chunkCount = 18450,
+            sizeMb = 542.8f,
+            hasNether = true,
+            hasTheEnd = true,
+            importedFromSource = null,
+            importDate = null,
+            lastBackupDate = "Today 04:00 AM"
+        )
+        val s2World = ServerWorldMetadata(
+            worldName = "bedrock_realm",
+            seed = "782019481029",
+            generatorType = "Bedrock LevelDB (1.21.40)",
+            chunkCount = 12300,
+            sizeMb = 310.5f,
+            hasNether = true,
+            hasTheEnd = true,
+            importedFromSource = null,
+            importDate = null,
+            lastBackupDate = "Yesterday 08:30 PM"
+        )
+        _serverWorldMetadata.value = mapOf(server1.id to s1World, server2.id to s2World, server3.id to s1World)
+
+        // Resource Packs
+        val initialResourcePacks = listOf(
+            ResourcePackItem("rp-01", "Bare Bones 1.21", "BareBones-v1.21.zip", 14.2f, 34, "Simplistic vibrant textures matching the official Minecraft trailers", isServerForced = false, isEnabled = true),
+            ResourcePackItem("rp-02", "Faithful 32x", "Faithful-32x-1.21.zip", 28.6f, 34, "High definition 32x32 textures preserving original vanilla Minecraft style", isServerForced = true, isEnabled = true),
+            ResourcePackItem("rp-03", "Fresh Animations", "FreshAnimations_v1.9.2.zip", 8.4f, 34, "Dynamic custom facial and mob body animations", isServerForced = false, isEnabled = false),
+            ResourcePackItem("rp-04", "Simple Voice Chat Icons", "voicechat-icons.zip", 1.2f, 34, "In-game 3D proximity speaker indicators over players' heads", isServerForced = true, isEnabled = true)
+        )
+        _serverResourcePacks.value = mapOf(server1.id to initialResourcePacks, server2.id to initialResourcePacks, server3.id to initialResourcePacks)
+
+        // Bedrock Add-ons
+        val initialAddons = listOf(
+            BedrockAddonItem("addon-01", "Actions & Stuff Bedrock", AddonType.FULL_ADDON, "1.4.0", "1.21.0", "Incredible next-gen mob combat animations, particle overhauls, and camera shakes", "ActionsAndStuff.mcaddon", 45.2f, true),
+            BedrockAddonItem("addon-02", "True Survival: Zombie Apocalypse", AddonType.BEHAVIOR_PACK, "2.8.1", "1.21.0", "Adds hordes, infected mobs, guns, melee crafting, and barricades", "TrueSurvival_BP.mcpack", 32.0f, false),
+            BedrockAddonItem("addon-03", "More Tools & Armor Expansion", AddonType.FULL_ADDON, "3.1.0", "1.21.0", "Adds Emerald, Ruby, Amethyst, and Copper weapon/armor tiers", "MoreTools.mcaddon", 12.8f, true),
+            BedrockAddonItem("addon-04", "Modern Furniture Pack", AddonType.RESOURCE_PACK, "2.0.4", "1.21.0", "Functional chairs, TVs, refrigerators, lamps, and modern decor", "Furniture_RP.mcpack", 18.5f, true)
+        )
+        _serverAddons.value = mapOf(server1.id to initialAddons, server2.id to initialAddons, server3.id to initialAddons)
+
         // Activity Logs
         _activityLogs.value = listOf(
             ActivityLogItem("act-01", "2 mins ago", "Admin", "Server smp.crafthost.gg health check passed (20.0 TPS)", "SERVER", "SUCCESS"),
@@ -451,7 +508,12 @@ level-name=world
         appendLog(serverId, "[CraftHost Supervisor] 24/7 Always-Online policy changed: $statusText")
         addActivity("User", "Toggled 24/7 Always Online: $statusText", "SERVER", "INFO")
         scope.launch {
-            serverDao?.updateAlwaysOnline(serverId, enabled)
+            serverDao?.let { dao ->
+                val entity = dao.getServerById(serverId)
+                if (entity != null) {
+                    dao.updateServer(entity.copy(isAlwaysOnline = enabled, updatedAt = System.currentTimeMillis()))
+                }
+            }
         }
     }
 
@@ -576,7 +638,29 @@ level-name=world
         _servers.value = _servers.value.map { srv ->
             if (srv.id == serverId) srv.copy(voiceRangeBlocks = rangeBlocks) else srv
         }
+        _voiceChatSettings.value = _voiceChatSettings.value.copy(attenuationDistanceBlocks = rangeBlocks)
         appendLog(serverId, "[SimpleVoiceChat] Administrator updated voice range to $rangeBlocks blocks")
+    }
+
+    fun updateVoiceChatSettings(newSettings: VoiceChatSettings) {
+        _voiceChatSettings.value = newSettings
+        val currentSrvId = _selectedServerId.value
+        _servers.value = _servers.value.map { srv ->
+            if (srv.id == currentSrvId) srv.copy(voiceRangeBlocks = newSettings.attenuationDistanceBlocks) else srv
+        }
+        appendLog(currentSrvId, "[SimpleVoiceChat] Applied voice parameters: Attenuation=${newSettings.attenuationDistanceBlocks}b, MicSensitivity=${newSettings.micSensitivityPercent.toInt()}%, OutputVol=${newSettings.outputVolumePercent.toInt()}%, VAD=${newSettings.voiceActivationType.name}")
+        addActivity("User", "Configured proximity voice parameters (Attenuation: ${newSettings.attenuationDistanceBlocks}b, Mic: ${newSettings.micSensitivityPercent.toInt()}%, Out: ${newSettings.outputVolumePercent.toInt()}%)", "VOICE", "SUCCESS")
+    }
+
+    fun resetVoiceChatSettings() {
+        val defaultSettings = VoiceChatSettings()
+        _voiceChatSettings.value = defaultSettings
+        val currentSrvId = _selectedServerId.value
+        _servers.value = _servers.value.map { srv ->
+            if (srv.id == currentSrvId) srv.copy(voiceRangeBlocks = defaultSettings.attenuationDistanceBlocks) else srv
+        }
+        appendLog(currentSrvId, "[SimpleVoiceChat] Restored voice parameters to system defaults (400 blocks)")
+        addActivity("User", "Reset voice parameters to defaults", "VOICE", "INFO")
     }
 
     // --- File Manager ---
@@ -613,8 +697,13 @@ level-name=world
     }
 
     fun restoreBackup(serverId: String, backupId: String) {
-        appendLog(serverId, "[Backup Service] Restoring snapshot $backupId... World chunks updated.")
-        addActivity("User", "Restored snapshot $backupId", "BACKUP", "WARN")
+        val currentBackups = _serverBackups.value[serverId] ?: emptyList()
+        val backup = currentBackups.find { it.id == backupId }
+        val name = backup?.name ?: backupId
+        appendLog(serverId, "[Backup Service] Restoring snapshot '$name' (Storage: Multi-AZ S3)...")
+        appendLog(serverId, "[Backup Service] Overwriting /world chunks, poi, and player inventories...")
+        appendLog(serverId, "[Backup Service] Snapshot successfully restored! Container marked ready.")
+        addActivity("User", "Restored snapshot '$name'", "BACKUP", "WARN")
     }
 
     fun deleteBackup(serverId: String, backupId: String) {
@@ -622,6 +711,158 @@ level-name=world
         _serverBackups.value = _serverBackups.value.toMutableMap().apply {
             put(serverId, currentBackups.filterNot { it.id == backupId })
         }
+        appendLog(serverId, "[Backup Service] Deleted snapshot $backupId")
+        addActivity("User", "Deleted snapshot $backupId", "BACKUP", "INFO")
+    }
+
+    fun importExternalBackup(serverId: String, label: String, downloadUrl: String) {
+        val timeStr = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(Date())
+        val newBackup = BackupSnapshot(
+            id = "bk-ext-${System.currentTimeMillis()}",
+            serverId = serverId,
+            name = if (label.isNotBlank()) label else "Imported Backup ($timeStr)",
+            sizeMb = 512.4f,
+            createdAt = timeStr,
+            isAutoDaily = false,
+            storageTier = "External Cloud Import",
+            downloadUrl = downloadUrl
+        )
+        val currentBackups = _serverBackups.value[serverId] ?: emptyList()
+        _serverBackups.value = _serverBackups.value.toMutableMap().apply {
+            put(serverId, listOf(newBackup) + currentBackups)
+        }
+        appendLog(serverId, "[Backup Service] Imported external backup from $downloadUrl -> Saved as '${newBackup.name}'")
+        addActivity("User", "Imported external backup: ${newBackup.name}", "BACKUP", "SUCCESS")
+    }
+
+    // --- World Management & Aternos World Importer ---
+
+    fun importWorldFromAternos(serverId: String, worldName: String, archiveName: String, isBedrockSource: Boolean) {
+        val timeStr = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(Date())
+        val effectiveName = if (worldName.isNotBlank()) worldName.trim() else "world"
+        val updatedWorld = ServerWorldMetadata(
+            worldName = effectiveName,
+            seed = "-3940182948102",
+            generatorType = if (isBedrockSource) "Bedrock LevelDB (Migrated to Anvil 1.21)" else "Aternos Paper/Spigot World",
+            chunkCount = 21420,
+            sizeMb = 612.4f,
+            hasNether = true,
+            hasTheEnd = true,
+            importedFromSource = WorldImportSource.ATERNOS_ZIP,
+            importDate = timeStr,
+            lastBackupDate = timeStr
+        )
+        _serverWorldMetadata.value = _serverWorldMetadata.value.toMutableMap().apply {
+            put(serverId, updatedWorld)
+        }
+        appendLog(serverId, "[Aternos Importer] Received Aternos backup package: $archiveName")
+        appendLog(serverId, "[Aternos Importer] Verifying chunk hashes in region/ & poi/...")
+        appendLog(serverId, "[Aternos Importer] Found 21,420 chunks (Overworld, Nether DIM-1, The End DIM1).")
+        if (isBedrockSource) {
+            appendLog(serverId, "[Aternos Importer] Converted Bedrock LevelDB NBT structures to Java Anvil .mca format!")
+        }
+        appendLog(serverId, "[Aternos Importer] level.dat updated: worldName='$effectiveName', difficulty=normal, allowCommands=true")
+        appendLog(serverId, "[Aternos Importer] Migration complete! Server ready to host imported Aternos world.")
+        addActivity("User", "Imported Aternos world: $archiveName", "WORLD", "SUCCESS")
+    }
+
+    fun importWorldZip(serverId: String, fileName: String, source: WorldImportSource) {
+        val timeStr = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(Date())
+        val updatedWorld = ServerWorldMetadata(
+            worldName = fileName.substringBeforeLast(".zip").substringBeforeLast(".mcworld"),
+            seed = "8947201984210",
+            generatorType = source.label,
+            chunkCount = 16800,
+            sizeMb = 475.0f,
+            hasNether = true,
+            hasTheEnd = true,
+            importedFromSource = source,
+            importDate = timeStr,
+            lastBackupDate = timeStr
+        )
+        _serverWorldMetadata.value = _serverWorldMetadata.value.toMutableMap().apply {
+            put(serverId, updatedWorld)
+        }
+        appendLog(serverId, "[World Manager] Unpacked $fileName into /data/servers/$serverId/world")
+        appendLog(serverId, "[World Manager] World verified successfully from ${source.label}.")
+        addActivity("User", "Uploaded world package $fileName (${source.badge})", "WORLD", "SUCCESS")
+    }
+
+    fun resetWorld(serverId: String, newSeed: String, worldName: String) {
+        val timeStr = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(Date())
+        val updatedWorld = ServerWorldMetadata(
+            worldName = if (worldName.isNotBlank()) worldName.trim() else "world",
+            seed = if (newSeed.isNotBlank()) newSeed.trim() else "${kotlin.random.Random.nextLong()}",
+            generatorType = "Fresh Vanilla 1.21.4",
+            chunkCount = 441,
+            sizeMb = 32.0f,
+            hasNether = true,
+            hasTheEnd = true,
+            importedFromSource = null,
+            importDate = null,
+            lastBackupDate = timeStr
+        )
+        _serverWorldMetadata.value = _serverWorldMetadata.value.toMutableMap().apply {
+            put(serverId, updatedWorld)
+        }
+        appendLog(serverId, "[World Manager] Purged old world directory.")
+        appendLog(serverId, "[World Manager] Generated new world '${updatedWorld.worldName}' with seed: ${updatedWorld.seed}")
+        addActivity("User", "Reset world to seed ${updatedWorld.seed}", "WORLD", "WARN")
+    }
+
+    // --- Resource Packs ---
+
+    fun addResourcePack(serverId: String, pack: ResourcePackItem) {
+        val packs = _serverResourcePacks.value[serverId] ?: emptyList()
+        _serverResourcePacks.value = _serverResourcePacks.value.toMutableMap().apply {
+            put(serverId, listOf(pack) + packs)
+        }
+        appendLog(serverId, "[Resource Pack] Added pack: ${pack.name} (${pack.fileName}, ${pack.sizeMb}MB)")
+        if (pack.isServerForced) {
+            appendLog(serverId, "[Resource Pack] Enforced resource pack in server.properties: require-resource-pack=true")
+        }
+        addActivity("User", "Added Resource Pack: ${pack.name}", "PACK", "SUCCESS")
+    }
+
+    fun toggleResourcePack(serverId: String, packId: String, enabled: Boolean) {
+        val packs = _serverResourcePacks.value[serverId] ?: emptyList()
+        val updated = packs.map { if (it.id == packId) it.copy(isEnabled = enabled) else it }
+        _serverResourcePacks.value = _serverResourcePacks.value.toMutableMap().apply { put(serverId, updated) }
+        appendLog(serverId, "[Resource Pack] Pack $packId state changed: enabled=$enabled")
+    }
+
+    fun deleteResourcePack(serverId: String, packId: String) {
+        val packs = _serverResourcePacks.value[serverId] ?: emptyList()
+        _serverResourcePacks.value = _serverResourcePacks.value.toMutableMap().apply {
+            put(serverId, packs.filterNot { it.id == packId })
+        }
+        appendLog(serverId, "[Resource Pack] Removed pack $packId")
+    }
+
+    // --- Bedrock Add-ons ---
+
+    fun addBedrockAddon(serverId: String, addon: BedrockAddonItem) {
+        val addons = _serverAddons.value[serverId] ?: emptyList()
+        _serverAddons.value = _serverAddons.value.toMutableMap().apply {
+            put(serverId, listOf(addon) + addons)
+        }
+        appendLog(serverId, "[Bedrock Add-on] Installed ${addon.name} (${addon.fileName}) into server behavior/resource manifests")
+        addActivity("User", "Installed Add-on: ${addon.name}", "ADDON", "SUCCESS")
+    }
+
+    fun toggleBedrockAddon(serverId: String, addonId: String, enabled: Boolean) {
+        val addons = _serverAddons.value[serverId] ?: emptyList()
+        val updated = addons.map { if (it.id == addonId) it.copy(isEnabled = enabled) else it }
+        _serverAddons.value = _serverAddons.value.toMutableMap().apply { put(serverId, updated) }
+        appendLog(serverId, "[Bedrock Add-on] Add-on $addonId toggled: $enabled")
+    }
+
+    fun deleteBedrockAddon(serverId: String, addonId: String) {
+        val addons = _serverAddons.value[serverId] ?: emptyList()
+        _serverAddons.value = _serverAddons.value.toMutableMap().apply {
+            put(serverId, addons.filterNot { it.id == addonId })
+        }
+        appendLog(serverId, "[Bedrock Add-on] Removed addon $addonId")
     }
 
     // --- Plugins & Mods ---
@@ -638,6 +879,36 @@ level-name=world
         val updated = plugins.map { if (it.id == pluginId) it.copy(isInstalled = true, isEnabled = true) else it }
         _serverPlugins.value = _serverPlugins.value.toMutableMap().apply { put(serverId, updated) }
         appendLog(serverId, "[Plugin Manager] Downloaded and installed $pluginId.jar")
+        addActivity("User", "Installed plugin/mod: $pluginId", "MOD", "SUCCESS")
+    }
+
+    fun installCustomMod(serverId: String, name: String, version: String, category: String, modLoader: String, fileName: String, author: String) {
+        val plugins = _serverPlugins.value[serverId] ?: emptyList()
+        val item = PluginModItem(
+            id = "mod-${System.currentTimeMillis()}",
+            name = name,
+            version = version.ifEmpty { "1.0.0" },
+            category = category,
+            author = author.ifEmpty { "Custom Author" },
+            description = "Custom uploaded $modLoader modification: $fileName",
+            isInstalled = true,
+            isEnabled = true,
+            supportedEditions = listOf(MinecraftEdition.JAVA),
+            modLoader = modLoader
+        )
+        _serverPlugins.value = _serverPlugins.value.toMutableMap().apply {
+            put(serverId, listOf(item) + plugins)
+        }
+        appendLog(serverId, "[Mod Loader] Injected custom mod: $fileName into /mods (Loader: $modLoader)")
+        addActivity("User", "Uploaded custom mod $name", "MOD", "SUCCESS")
+    }
+
+    fun deletePlugin(serverId: String, pluginId: String) {
+        val plugins = _serverPlugins.value[serverId] ?: emptyList()
+        _serverPlugins.value = _serverPlugins.value.toMutableMap().apply {
+            put(serverId, plugins.filterNot { it.id == pluginId })
+        }
+        appendLog(serverId, "[Plugin Manager] Removed plugin/mod $pluginId")
     }
 
     // --- Players ---
@@ -688,7 +959,12 @@ level-name=world
     private fun updateServerStatus(serverId: String, status: ServerStatus) {
         _servers.value = _servers.value.map { if (it.id == serverId) it.copy(status = status) else it }
         scope.launch {
-            serverDao?.updateServerStatus(serverId, status)
+            serverDao?.let { dao ->
+                val entity = dao.getServerById(serverId)
+                if (entity != null) {
+                    dao.updateServer(entity.copy(status = status, updatedAt = System.currentTimeMillis()))
+                }
+            }
         }
     }
 

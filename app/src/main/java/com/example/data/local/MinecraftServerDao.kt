@@ -6,19 +6,13 @@ import com.example.model.ServerStatus
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Data Access Object for managing persistent Minecraft server states in Room database.
+ * Extended Data Access Object extending ServerDao for managing persistent Minecraft server states in Room database.
  */
 @Dao
-interface MinecraftServerDao {
-
-    @Query("SELECT * FROM minecraft_servers ORDER BY createdAt DESC")
-    fun getAllServers(): Flow<List<ServerEntity>>
+interface MinecraftServerDao : ServerDao {
 
     @Query("SELECT * FROM minecraft_servers WHERE id = :id LIMIT 1")
     fun getServerByIdFlow(id: String): Flow<ServerEntity?>
-
-    @Query("SELECT * FROM minecraft_servers WHERE id = :id LIMIT 1")
-    suspend fun getServerById(id: String): ServerEntity?
 
     @Query("SELECT * FROM minecraft_servers WHERE status = :status ORDER BY name ASC")
     fun getServersByStatus(status: ServerStatus): Flow<List<ServerEntity>>
@@ -33,13 +27,7 @@ interface MinecraftServerDao {
     fun getServerCountFlow(): Flow<Int>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertServer(server: ServerEntity)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertServers(servers: List<ServerEntity>)
-
-    @Update
-    suspend fun updateServer(server: ServerEntity)
 
     @Query("UPDATE minecraft_servers SET status = :status, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateServerStatus(
@@ -81,9 +69,6 @@ interface MinecraftServerDao {
         rangeBlocks: Int,
         updatedAt: Long = System.currentTimeMillis()
     )
-
-    @Delete
-    suspend fun deleteServer(server: ServerEntity)
 
     @Query("DELETE FROM minecraft_servers WHERE id = :id")
     suspend fun deleteServerById(id: String)

@@ -41,6 +41,7 @@ fun DashboardScreen(
 ) {
     val clipboardManager = LocalClipboardManager.current
     var copiedAddress by remember { mutableStateOf<String?>(null) }
+    var selectedTrendServerId by remember(servers) { mutableStateOf(servers.firstOrNull()?.id ?: "") }
 
     val onlineCount = servers.count { it.status == ServerStatus.ONLINE }
     val alwaysOnlineCount = servers.count { it.isAlwaysOnline }

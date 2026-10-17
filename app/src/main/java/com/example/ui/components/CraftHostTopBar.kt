@@ -26,6 +26,7 @@ fun CraftHostTopBar(
     onToggleDemoMode: () -> Unit,
     onOpenDrawer: () -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenApkDownload: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     TopAppBar(
@@ -124,6 +125,14 @@ fun CraftHostTopBar(
                         fontWeight = FontWeight.Bold
                     )
                 }
+            }
+
+            IconButton(onClick = onOpenApkDownload) {
+                Icon(
+                    imageVector = Icons.Default.Android,
+                    contentDescription = "Direct Download APK",
+                    tint = EmeraldLight
+                )
             }
 
             IconButton(onClick = onOpenNotifications) {

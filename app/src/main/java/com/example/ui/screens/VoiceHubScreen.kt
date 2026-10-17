@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -29,10 +30,12 @@ fun VoiceHubScreen(
     isMuted: Boolean,
     isPushToTalkActive: Boolean,
     voiceServiceHealthy: Boolean,
+    voiceSettings: VoiceChatSettings = VoiceChatSettings(),
     onToggleMute: () -> Unit,
     onPushToTalkChange: (Boolean) -> Unit,
     onUpdateListenerCoords: (Double, Double, Double, Float) -> Unit,
     onToggleServiceOutage: () -> Unit,
+    onOpenVoiceSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var listenerX by remember { mutableStateOf(listenerPos.x.toFloat()) }
@@ -61,7 +64,7 @@ fun VoiceHubScreen(
                         fontWeight = FontWeight.Black
                     )
                     Text(
-                        text = "Opus Low-Latency Gateway • 400 Blocks Spatial Attenuation",
+                        text = "Opus Low-Latency Gateway • ${voiceSettings.attenuationDistanceBlocks}b Spatial Attenuation",
                         color = CyanLight,
                         fontSize = 11.sp
                     )
@@ -97,12 +100,75 @@ fun VoiceHubScreen(
             }
         }
 
+        // Voice Parameters Quick Settings Card
+        item {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = SlateDarkCard),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        1.dp,
+                        Brush.horizontalGradient(listOf(CyanLight.copy(alpha = 0.5f), EmeraldLight.copy(alpha = 0.5f))),
+                        RoundedCornerShape(12.dp)
+                    )
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(EmeraldContainerDark),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Tune, contentDescription = null, tint = EmeraldLight, modifier = Modifier.size(16.dp))
+                            }
+                            Column {
+                                Text("VOICE PARAMETERS", color = TextDarkMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Text("Proximity Distance & Audio Gate", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Button(
+                            onClick = onOpenVoiceSettings,
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary, contentColor = Color.Black),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Configure", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        VoiceParamPill("Attenuation", "${voiceSettings.attenuationDistanceBlocks} Blocks", Icons.Default.Hearing)
+                        VoiceParamPill("Mic Gate", "${voiceSettings.micSensitivityPercent.toInt()}%", Icons.Default.Mic)
+                        VoiceParamPill("Output Vol", "${voiceSettings.outputVolumePercent.toInt()}%", Icons.Default.VolumeUp)
+                    }
+                }
+            }
+        }
+
         // Radar Canvas & Spatial Calculations
         item {
             VoiceRadarView(
                 listenerPos = listenerPos,
                 participants = participants,
-                maxVoiceRangeBlocks = 400,
+                maxVoiceRangeBlocks = voiceSettings.attenuationDistanceBlocks,
                 isMuted = isMuted,
                 isPushToTalkActive = isPushToTalkActive,
                 onToggleMute = onToggleMute,
@@ -268,6 +334,31 @@ private fun IntegrationStatusRow(title: String, desc: String, status: String, is
                 .padding(horizontal = 8.dp, vertical = 2.dp)
         ) {
             Text(status, color = if (isOk) EmeraldLight else AmberAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun VoiceParamPill(
+    label: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = SlateDarkSurface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, SlateDarkBorder)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = CyanLight, modifier = Modifier.size(15.dp))
+            Column {
+                Text(label, color = TextDarkMuted, fontSize = 9.sp)
+                Text(value, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            }
         }
     }
 }

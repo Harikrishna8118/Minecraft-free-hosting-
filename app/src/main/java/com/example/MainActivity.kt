@@ -26,14 +26,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.CraftHostRepository
-import com.example.model.MinecraftServer
-import com.example.ui.components.CraftHostTopBar
+import com.example.model.*
+import com.example.ui.components.*
 import com.example.ui.screens.*
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 
 enum class AppDestination(val label: String, val icon: ImageVector) {
-    LANDING("Landing", Icons.Default.Home),
+    SERVERS("Servers", Icons.Default.Dns),
     DASHBOARD("Dashboard", Icons.Default.Dashboard),
     VOICE_HUB("Voice Chat", Icons.Default.RecordVoiceOver),
     INFRASTRUCTURE("Nodes", Icons.Default.Hub),
@@ -42,9 +42,12 @@ enum class AppDestination(val label: String, val icon: ImageVector) {
 
 class MainActivity : ComponentActivity() {
 
+    private val database by lazy {
+        com.example.data.local.AppDatabase.getDatabase(applicationContext)
+    }
+
     private val repository by lazy {
-        val db = com.example.data.local.CraftHostDatabase.getDatabase(applicationContext)
-        CraftHostRepository(serverDao = db.serverDao())
+        CraftHostRepository(serverDao = database.serverDao())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,18 +56,26 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MyApplicationTheme {
-                CraftHostApp(repository = repository)
+                CraftHostApp(
+                    repository = repository,
+                    serverDao = database.serverDao()
+                )
             }
         }
     }
 }
 
 @Composable
-fun CraftHostApp(repository: CraftHostRepository) {
-    var currentDestination by remember { mutableStateOf(AppDestination.DASHBOARD) }
+fun CraftHostApp(
+    repository: CraftHostRepository,
+    serverDao: com.example.data.local.ServerDao
+) {
+    var currentDestination by remember { mutableStateOf(AppDestination.SERVERS) }
     var isInCreationWizard by remember { mutableStateOf(false) }
     var viewingServerPanel by remember { mutableStateOf(false) }
+    var viewingVoiceSettings by remember { mutableStateOf(false) }
     var showNotificationsDialog by remember { mutableStateOf(false) }
+    var showApkDownloadDialog by remember { mutableStateOf(false) }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
@@ -80,10 +91,14 @@ fun CraftHostApp(repository: CraftHostRepository) {
     val isMuted by repository.isMicrophoneMuted.collectAsStateWithLifecycle()
     val isPttActive by repository.isPushToTalkActive.collectAsStateWithLifecycle()
     val voiceHealthy by repository.voiceServiceHealthy.collectAsStateWithLifecycle()
+    val voiceChatSettings by repository.voiceChatSettings.collectAsStateWithLifecycle()
     val serverFiles by repository.serverFiles.collectAsStateWithLifecycle()
     val serverBackups by repository.serverBackups.collectAsStateWithLifecycle()
     val serverPlugins by repository.serverPlugins.collectAsStateWithLifecycle()
     val serverPlayers by repository.serverPlayers.collectAsStateWithLifecycle()
+    val serverWorlds by repository.serverWorldMetadata.collectAsStateWithLifecycle()
+    val serverResourcePacks by repository.serverResourcePacks.collectAsStateWithLifecycle()
+    val serverAddons by repository.serverAddons.collectAsStateWithLifecycle()
     val activityLogs by repository.activityLogs.collectAsStateWithLifecycle()
     val isDemoMode by repository.isDemoMode.collectAsStateWithLifecycle()
 
@@ -92,11 +107,12 @@ fun CraftHostApp(repository: CraftHostRepository) {
     }
 
     // Back button handling
-    BackHandler(enabled = isInCreationWizard || viewingServerPanel || currentDestination != AppDestination.DASHBOARD) {
+    BackHandler(enabled = isInCreationWizard || viewingServerPanel || viewingVoiceSettings || currentDestination != AppDestination.SERVERS) {
         when {
+            viewingVoiceSettings -> viewingVoiceSettings = false
             isInCreationWizard -> isInCreationWizard = false
             viewingServerPanel -> viewingServerPanel = false
-            else -> currentDestination = AppDestination.DASHBOARD
+            else -> currentDestination = AppDestination.SERVERS
         }
     }
 
@@ -136,6 +152,10 @@ fun CraftHostApp(repository: CraftHostRepository) {
             },
             containerColor = SlateDarkCard
         )
+    }
+
+    if (showApkDownloadDialog) {
+        DirectApkDownloadDialog(onDismiss = { showApkDownloadDialog = false })
     }
 
     ModalNavigationDrawer(
@@ -206,6 +226,32 @@ fun CraftHostApp(repository: CraftHostRepository) {
                     },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                 )
+
+                // Direct Download APK
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Android, contentDescription = null, tint = CyanLight) },
+                    label = { Text("Direct Download APK", color = CyanLight, fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = {
+                        showApkDownloadDialog = true
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                )
+
+                // Voice Chat Settings
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Tune, contentDescription = null, tint = EmeraldLight) },
+                    label = { Text("Voice Chat Settings", color = EmeraldLight, fontWeight = FontWeight.SemiBold) },
+                    selected = viewingVoiceSettings,
+                    onClick = {
+                        viewingVoiceSettings = true
+                        viewingServerPanel = false
+                        isInCreationWizard = false
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                )
             }
         }
     ) {
@@ -215,11 +261,12 @@ fun CraftHostApp(repository: CraftHostRepository) {
                     isDemoMode = isDemoMode,
                     onToggleDemoMode = { repository.toggleDemoMode() },
                     onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
-                    onOpenNotifications = { showNotificationsDialog = true }
+                    onOpenNotifications = { showNotificationsDialog = true },
+                    onOpenApkDownload = { showApkDownloadDialog = true }
                 )
             },
             bottomBar = {
-                if (!isInCreationWizard && !viewingServerPanel) {
+                if (!isInCreationWizard && !viewingServerPanel && !viewingVoiceSettings) {
                     NavigationBar(
                         containerColor = ObsidianDarkBg,
                         contentColor = Color.White,
@@ -259,6 +306,15 @@ fun CraftHostApp(repository: CraftHostRepository) {
                     .padding(innerPadding)
             ) {
                 when {
+                    viewingVoiceSettings -> {
+                        VoiceSettingsScreen(
+                            currentSettings = voiceChatSettings,
+                            onSaveSettings = { repository.updateVoiceChatSettings(it) },
+                            onResetSettings = { repository.resetVoiceChatSettings() },
+                            onBack = { viewingVoiceSettings = false }
+                        )
+                    }
+
                     isInCreationWizard -> {
                         ServerCreationWizardScreen(
                             onServerCreated = { newServer ->
@@ -282,6 +338,9 @@ fun CraftHostApp(repository: CraftHostRepository) {
                             listenerPos = listenerPos,
                             isMuted = isMuted,
                             isPushToTalkActive = isPttActive,
+                            worldMetadata = serverWorlds[currentServer.id],
+                            resourcePacks = serverResourcePacks[currentServer.id] ?: emptyList(),
+                            addons = serverAddons[currentServer.id] ?: emptyList(),
                             onStartServer = { repository.startServer(currentServer.id) },
                             onStopServer = { repository.stopServer(currentServer.id) },
                             onRestartServer = { repository.restartServer(currentServer.id) },
@@ -292,23 +351,42 @@ fun CraftHostApp(repository: CraftHostRepository) {
                             onSaveFile = { path, content -> repository.saveFileContent(currentServer.id, path, content) },
                             onCreateBackup = { name -> repository.createManualBackup(currentServer.id, name) },
                             onRestoreBackup = { bkId -> repository.restoreBackup(currentServer.id, bkId) },
+                            onDeleteBackup = { bkId -> repository.deleteBackup(currentServer.id, bkId) },
+                            onImportExternalBackup = { label, url -> repository.importExternalBackup(currentServer.id, label, url) },
+                            onImportAternosWorld = { wName, archName, isBedrock -> repository.importWorldFromAternos(currentServer.id, wName, archName, isBedrock) },
+                            onImportWorldZip = { fName, src -> repository.importWorldZip(currentServer.id, fName, src) },
+                            onResetWorld = { seed, name -> repository.resetWorld(currentServer.id, seed, name) },
                             onTogglePlugin = { plugId, en -> repository.togglePlugin(currentServer.id, plugId, en) },
+                            onInstallPlugin = { plugId -> repository.installPlugin(currentServer.id, plugId) },
+                            onDeletePlugin = { plugId -> repository.deletePlugin(currentServer.id, plugId) },
+                            onUploadCustomMod = { name, ver, cat, loader, file, author -> repository.installCustomMod(currentServer.id, name, ver, cat, loader, file, author) },
+                            onAddResourcePack = { pack -> repository.addResourcePack(currentServer.id, pack) },
+                            onToggleResourcePack = { pId, en -> repository.toggleResourcePack(currentServer.id, pId, en) },
+                            onDeleteResourcePack = { pId -> repository.deleteResourcePack(currentServer.id, pId) },
+                            onAddBedrockAddon = { addon -> repository.addBedrockAddon(currentServer.id, addon) },
+                            onToggleBedrockAddon = { aId, en -> repository.toggleBedrockAddon(currentServer.id, aId, en) },
+                            onDeleteBedrockAddon = { aId -> repository.deleteBedrockAddon(currentServer.id, aId) },
                             onTogglePlayerOp = { user, isOp -> repository.togglePlayerOp(currentServer.id, user, isOp) },
                             onBanPlayer = { user -> repository.banPlayer(currentServer.id, user) },
                             onUnbanPlayer = { user -> repository.unbanPlayer(currentServer.id, user) },
                             onToggleMute = { repository.toggleMicrophoneMute() },
                             onPushToTalkChange = { repository.setPushToTalkActive(it) },
                             onUpdateVoiceRange = { repository.updateServerVoiceRange(currentServer.id, it) },
+                            onOpenVoiceSettings = { viewingVoiceSettings = true },
                             onBack = { viewingServerPanel = false }
                         )
                     }
 
                     else -> {
                         when (currentDestination) {
-                            AppDestination.LANDING -> {
-                                LandingScreen(
-                                    onCreateServerClick = { isInCreationWizard = true },
-                                    onExploreDashboardClick = { currentDestination = AppDestination.DASHBOARD }
+                            AppDestination.SERVERS -> {
+                                ServerListScreen(
+                                    serverDao = serverDao,
+                                    onServerClick = { serverId ->
+                                        repository.selectServer(serverId)
+                                        viewingServerPanel = true
+                                    },
+                                    onCreateServerClick = { isInCreationWizard = true }
                                 )
                             }
                             AppDestination.DASHBOARD -> {
@@ -334,12 +412,14 @@ fun CraftHostApp(repository: CraftHostRepository) {
                                     isMuted = isMuted,
                                     isPushToTalkActive = isPttActive,
                                     voiceServiceHealthy = voiceHealthy,
+                                    voiceSettings = voiceChatSettings,
                                     onToggleMute = { repository.toggleMicrophoneMute() },
                                     onPushToTalkChange = { repository.setPushToTalkActive(it) },
                                     onUpdateListenerCoords = { x, y, z, yaw ->
                                         repository.setLocalListenerPosition(x, y, z, yaw)
                                     },
-                                    onToggleServiceOutage = { repository.toggleVoiceServiceSimulatedOutage() }
+                                    onToggleServiceOutage = { repository.toggleVoiceServiceSimulatedOutage() },
+                                    onOpenVoiceSettings = { viewingVoiceSettings = true }
                                 )
                             }
                             AppDestination.INFRASTRUCTURE -> {
